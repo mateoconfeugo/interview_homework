@@ -1,0 +1,4 @@
+---
+- hosts: all
+  tasks:
+  - debug: msg="starting out on task this message is for the initial commit"
