@@ -1,4 +1,8 @@
 ---
-- hosts: all
+- name: Install lighttpd and deploy website via tarball residing on s3 bucket
+  hosts: all
   tasks:
-  - debug: msg="complete me"
+  - debug: msg="starting out on task this message is for the initial commit"
+  roles:
+    - common
+    - lighttpd

@@ -10,10 +10,11 @@
   aws_s3:
     bucket: bogus-app-homework
     object: /homework.tar.gz
-    dest: /srv/bogusapp/
+    dest: {{ staging_dir }}
     mode: get
 
 - name: Extract homework.tar.gz.tgz
   unarchive:
-    src: /srv/bogusapp/homework.tar.gz.tgz
+    src: {{ staging_dir }}/homework.tar.gz.tgz
     dest: /srv/bogusapp/
+  notify: restart lighttpd

@@ -5,14 +5,13 @@ server.modules = (
  	"mod_redirect",
 #       "mod_rewrite",
 )
-
-server.document-root        = "/var/www/html"
-server.upload-dirs          = ( "/var/cache/lighttpd/uploads" )
-server.errorlog             = "/var/log/lighttpd/error.log"
-server.pid-file             = "/var/run/lighttpd.pid"
-server.username             = {{ lighttpd_user }}
-server.groupname            = {{ lighttpd_group }}
-server.port                 =  {{ lighttpd_port }}
+server.document-root        = "{{ web_root_dir }}"
+server.upload-dirs          = "{{ cache_root_dir }}/lighttpd/uploads"
+server.errorlog             = "{{ log_root_dir }}/lighttpd/error.log"
+server.pid-file             = "{{ pid_dir }}/lighttpd.pid"
+server.username             = "{{ lighttpd_user }}"
+server.groupname            = "{{ lighttpd_group }}"
+server.port                 = {{ lighttpd_port }}
 
 
 index-file.names            = ( "index.php", "index.html", "index.lighttpd.html" )
