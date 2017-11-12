@@ -1,7 +1,7 @@
 ---
 lighttpd_port: 80
-lighttpd_user: www-data
-lighttpd_group: www-data
+lighttpd_user:  lighttpd
+lighttpd_group: lighttpd
 s3_repository: bogus-app-homework
 aws_region: us-west-2
 tarball: homework.tar.gz

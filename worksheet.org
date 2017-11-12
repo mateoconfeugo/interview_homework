@@ -76,11 +76,11 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 end
 #+END_SRC
 **** DONE Ansible configuration
-.vagrant/provisioners/ansible/inventory/vagrant_ansible_inventory
 
+ansible/hosts
 #+BEGIN_SRC ini  :noweb yes :mkdirp yes :tangle  ansible.cfg
 [defaults]
-inventory = ansible/hosts
+inventory = .vagrant/provisioners/ansible/inventory/vagrant_ansible_inventory
 remote_user = vagrant
 sudo = yes
 pipelining = yes
@@ -105,6 +105,9 @@ become = no
     - lighttpd
 #+END_SRC
 **** DONE hosts
+    localhost:
+      ansible_connection: local
+      ansible_python_interpreter: /home/mburns/bb/mbe/projects/disney_homework/interview_homework/venv/bin/python
 #+BEGIN_SRC yaml :noweb yes  :mkdirp yes :tangle ansible/hosts
 ---
 all:
@@ -114,9 +117,6 @@ all:
       ansible_ssh_port: 2222
       ansible_ssh_user: vagrant
       ansible_ssh_private_key_file: /home/mburns/.vagrant.d/insecure_private_key
-    localhost:
-      ansible_connection: local
-      ansible_python_interpreter: /home/mburns/bb/mbe/projects/disney_homework/interview_homework/venv/bin/python
   children:
     webservers:
       hosts:
@@ -130,8 +130,8 @@ all:
 #+BEGIN_SRC yaml :noweb yes :mkdirp yes :tangle  ansible/group_vars/all
 ---
 lighttpd_port: 80
-lighttpd_user: www-data
-lighttpd_group: www-data
+lighttpd_user:  lighttpd
+lighttpd_group: lighttpd
 s3_repository: bogus-app-homework
 aws_region: us-west-2
 tarball: homework.tar.gz
@@ -140,6 +140,7 @@ cache_root_dir: /var/cache
 log_root_dir: /var/log/
 pid_dir: /var/run
 srv_dir: /srv
+server_bind_ip: 0.0.0.0
 staging_dir: /tmp
 #+END_SRC
 **** TODO roles directory
@@ -171,7 +172,7 @@ staging_dir: /tmp
 ***** TODO lighttpd
  - [-] change bind server ip to "0.0.0.0" so can view via host web browser pointing at virtual box instance set to the ip above in the vagrant file
 ****** TODO files/templates
-******* TODO conf-available directory
+
 ******* TODO conf-enabled directory
 ******** vhost for bogus site  via a jinja2 template
 #+BEGIN_SRC conf :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/files/vhost.j2
@@ -189,8 +190,63 @@ simple-vhost.default-host        = "www.example.com"
 
 #+END_SRC
 ******** configurations enabled by means of symbolic link
-******* DONE configuration template
+******* DONE lighttpd.conf
 #+BEGIN_SRC conf :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/templates/lighttpd.conf.j2
+var.log_root    = "{{ log_root_dir }}"
+var.server_root = "{{ web_root_dir }}"
+var.state_dir   = "{{ pid_dir }}"
+var.home_dir    = "/var/lib/lighttpd"
+var.conf_dir    = "/etc/lighttpd"
+
+## Base directory for all virtual hosts  used in:  conf.d/evhost.conf,  conf.d/simple_vhost.conf,  vhosts.d/vhosts.template
+var.vhosts_dir  = server_root + "/vhosts"
+
+## Cache for mod_compress used in: conf.d/compress.conf
+var.cache_dir   = "/var/cache/lighttpd"
+
+## Base directory for sockets used in: conf.d/fastcgi.conf, conf.d/scgi.conf
+var.socket_dir  = state_dir + "/sockets"
+
+include "modules.conf"
+server.port  = "{{ lighttpd_port }}"
+server.use-ipv6 = "enable"
+server.bind = "{{ server_bind_ip }}"
+server.username  = "{{ lighttpd_user }}"
+server.groupname = "{{ lighttpd_group }}"
+server.document-root = server_root + "/lighttpd"
+server.pid-file = state_dir + "/lighttpd.pid"
+## Path to the error log file, all logging options can be overwritten per vhost.
+server.errorlog             = log_root + "/error.log"
+
+include "conf.d/access_log.conf"
+include "conf.d/debug.conf"
+
+server.event-handler = "linux-sysepoll"
+server.network-backend = "sendfile"
+server.stat-cache-engine = "simple"
+server.max-connections = 1024
+
+index-file.names += ( "index.xhtml", "index.html", "index.htm", "default.htm", "index.php")
+url.access-deny = ( "~", ".inc" )
+
+$HTTP["url"] =~ "\.pdf$" {
+  server.range-requests = "disable"
+}
+
+static-file.exclude-extensions = ( ".php", ".pl", ".fcgi", ".scgi" )
+
+include "conf.d/mime.conf"
+include "conf.d/dirlisting.conf"
+
+server.follow-symlink = "enable"
+server.upload-dirs = ( "/var/tmp" )
+
+#include "conf.d/config.conf"
+#include "/etc/lighttpd/vhosts.d/*.conf"
+
+#+END_SRC
+******* TODO module.conf
+#+BEGIN_SRC conf :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/templates/modules.conf.j2
 server.modules = (
 	"mod_access",
 	"mod_alias",
@@ -220,8 +276,17 @@ compress.filetype           = ( "application/javascript", "text/css", "text/html
 include_shell "/usr/share/lighttpd/create-mime.assign.pl"
 include_shell "/usr/share/lighttpd/include-conf-enabled.pl"
 #+END_SRC
+******* Named virtual host - type: simple
+#+BEGIN_SRC conf :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/templates/conf.d/simple_vhost.conf.j2
+server.modules += ( "mod_simple_vhost" )
+simple-vhost.server-root   = vhosts_dir + "/"
+simple-vhost.default-host  = "default.example.com"
+simple-vhost.document-root = "/htdocs/"
+#simple-vhost.debug = 1
+#+END_SRC
 ****** DONE handlers
 #+BEGIN_SRC yaml :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/handlers/main.yml
+---
 - name: restart lighttpd
   service: name=lighttpd state=restarted enabled=yes
 
@@ -233,26 +298,32 @@ include_shell "/usr/share/lighttpd/include-conf-enabled.pl"
     name: lighttpd
     state: present
 
+- name: Creates directory
+  file:
+    path: /srv/bogusapp
+    state: directory
+    owner: "{{ lighttpd_user }}"
+    group: "{{ lighttpd_group }}"
+    mode: 0775
+
 - name: Retrieve homework web site tarball from bogusapp s3 bucket
-  aws_s3:
-    bucket: "bogus-app-homework"
-    object: /homework.tar.gz
-    dest: "{{ staging_dir }}/homework.tar.gz"
+  connection : local
+  s3:
+    bucket: bogus-app-homework
+    object: homework.tar.gz
+    dest: "/srv/bogusapp/homework.tar.gz"
     mode: get
-    aws_access_key: AKIAJH2C7CAWKL7BLTBA
-    aws_secret_key: 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
+    aws_access_key:  AKIAI2DB7HIYHKOH2HXA
+    aws_secret_key:  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
     region: us-west-2
 
+- name: Extract homework.tar.gz.tgz
+  unarchive:
+    src: "/srv/bogusapp/homework.tar.gz"
+    dest: /srv/bogusapp/
+#    notify: restart lighttpd
+
 #+END_SRC
-
-
-
-
-- name: Retrieve tarball from bucket
-  command: aws s3 cp s3://bogus-app-homework/homework.tar.gz .
-
-
-
 
 
 - name: Copy lighttpd configuration
@@ -260,11 +331,7 @@ include_shell "/usr/share/lighttpd/include-conf-enabled.pl"
   notify: restart lighttpd
 
 
-- name: Extract homework.tar.gz.tgz
-  unarchive:
-    src: "{{ staging_dir }}/homework.tar.gz.tgz"
-    dest: /srv/bogusapp/
-  notify: restart lighttpd
+
 
 ** TODO Initial Check In
 *** Tests
