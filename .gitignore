@@ -1,6 +1,6 @@
 tmp/
 venv/
-worksheet*
+worksheet.html
 .vagrant/
 themes/
 vault.txt
