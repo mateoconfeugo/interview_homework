@@ -1,2 +1,18 @@
-[webservers]
-centos7-homework
+---
+all:
+  hosts:
+    centos7-homework:
+      ansible_ssh_host: 127.0.0.1
+      ansible_ssh_port: 2222
+      ansible_ssh_user: vagrant
+      ansible_ssh_private_key_file: /home/mburns/.vagrant.d/insecure_private_key
+    localhost:
+      ansible_connection: local
+      ansible_python_interpreter: /home/mburns/bb/mbe/projects/disney_homework/interview_homework/venv/bin/python
+  children:
+    webservers:
+      hosts:
+        centos7-homework:
+    homework-dev:
+      hosts:
+        centos7-homework:

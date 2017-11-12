@@ -3,7 +3,7 @@ VAGRANTFILE_API_VERSION = "2"
 this_role = 'homework'
 this_env = 'dev'
 
-ENV['ANSIBLE_CONFIG'] = "ansible/ansible.cfg"
+ENV['ANSIBLE_CONFIG'] = "ansible.cfg"
 ENV['ANSIBLE_DIR'] = "ansible/"
 
 vagrant_ip = "192.168.52.101"
