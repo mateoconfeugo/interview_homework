@@ -1,0 +1,301 @@
+#+SETUPFILE: ./themes/theme-readtheorg.setup
+#+TITLE: Assignment for Fox
+Please email the completed assignment to me by Monday. Turn around time should be 2-3 days.
+* What I think I'm supposed to do
+ - Via the ansible provider install and configure lighttpd to support named virtual hosting
+ - With an ansible module or via awscli  access the s3 bucket and retrieve the tarball
+ - Unzip the archive into the correct directory /srv/bogusapp/
+ - Restart the server if necessary
+ - Register the state of the installation for the idempotent aspect of the assignment
+ - Secure the s3 access and secret key, password is supplied at "vagrant up". Use ansible-vault prompting vault password on 'vagrant up'.
+ - Present some output at the end of the vagrant run with local host setup to test the named virtual host.
+* DONE Prerequists
+*** DONE Get the Assignment
+**** DONE Retrieve via AWS CLI:
+  - s3://bogus-app-homework/interview_homework.tar
+  - Using the following credentials:
+  +  AWS_ACCESS_KEY_ID: AKIAI2DB7HIYHKOH2HXA
+  + AWS_SECRET_ACCESS_KEY: 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
+ These are accomplished by running the about setup_env script
+*** DONE Python dependencies
+*** DONE virturalenv
+*** DONE Install Ansible
+*** DONE Install Vagrant
+ #+BEGIN_SRC sh :dir /sudo::
+sudo apt-get install vagrant
+ #+END_SRC
+*** DONE Install Virtualbox
+*** DONE Enable Virtualization in BIOS
+*** DONE What is the Definition of Done for each task
+ #+RESULTS:
+* TODO Steps
+** DONE Create github project
+** TODO Layout directories and files
+**** DONE Vagrant configuration
+#+BEGIN_SRC ruby  :noweb yes :mkdirp yes :tangle  Vagrantfile
+VAGRANTFILE_API_VERSION = "2"
+
+this_role = 'homework'
+this_env = 'dev'
+
+ENV['ANSIBLE_CONFIG'] = "ansible.cfg"
+ENV['ANSIBLE_DIR'] = "ansible/"
+
+vagrant_ip = "192.168.52.101"
+
+boxes = {
+ "centos7" => "centos/7",
+}
+
+Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
+  boxes.each do |distribution, box|
+    config.ssh.insert_key = false
+    config.ssh.forward_agent = true
+
+    config.vm.provider :virtualbox do |vb|
+      vb.customize ["modifyvm", :id, "--cpus", "1"]
+      vb.customize ["modifyvm", :id, "--memory", "2048"]
+      vb.customize ["modifyvm", :id, "--natdnsproxy1", "off"]
+      vb.customize ["modifyvm", :id, "--nictype1", "virtio" ]
+      vb.customize ["modifyvm", :id, "--nictype2", "virtio" ]
+    end
+
+    config.vm.define "#{distribution}-#{this_role}" do |host|
+      host.vm.hostname = this_role
+      host.vm.box = box
+      host.vm.network :private_network, ip: vagrant_ip
+      host.vm.provision "ansible" do |ansible|
+        ansible.extra_vars = { ENV: this_env }
+        ansible.playbook = "ansible/homework.yml"
+        ansible.groups = {
+          "#{this_role}-#{this_env}" => [ "#{distribution}-#{this_role}" ]
+        }
+      end
+    end
+  end
+end
+#+END_SRC
+**** DONE Ansible configuration
+.vagrant/provisioners/ansible/inventory/vagrant_ansible_inventory
+
+#+BEGIN_SRC ini  :noweb yes :mkdirp yes :tangle  ansible.cfg
+[defaults]
+inventory = ansible/hosts
+remote_user = vagrant
+sudo = yes
+pipelining = yes
+roles_path = $TECHOPS_AWS/ansible/roles
+
+[privilege_escalation]
+become = no
+#+END_SRC
+**** DONE top level yaml file homework.yml
+#+BEGIN_SRC yaml  :noweb yes :mkdirp yes :tangle  ansible/homework.yml
+---
+- name: Install lighttpd and deploy website via tarball residing on s3 bucket
+  hosts: homework-dev
+  remote_user: root
+  become: yes
+  become_method: sudo
+
+  tasks:
+  - debug: msg="starting out on task this message is for the initial commit"
+  roles:
+    - common
+    - lighttpd
+#+END_SRC
+**** DONE hosts
+#+BEGIN_SRC yaml :noweb yes  :mkdirp yes :tangle ansible/hosts
+---
+all:
+  hosts:
+    centos7-homework:
+      ansible_ssh_host: 127.0.0.1
+      ansible_ssh_port: 2222
+      ansible_ssh_user: vagrant
+      ansible_ssh_private_key_file: /home/mburns/.vagrant.d/insecure_private_key
+    localhost:
+      ansible_connection: local
+      ansible_python_interpreter: /home/mburns/bb/mbe/projects/disney_homework/interview_homework/venv/bin/python
+  children:
+    webservers:
+      hosts:
+        centos7-homework:
+    homework-dev:
+      hosts:
+        centos7-homework:
+#+END_SRC
+**** DONE group_vars directory
+***** DONE all
+#+BEGIN_SRC yaml :noweb yes :mkdirp yes :tangle  ansible/group_vars/all
+---
+lighttpd_port: 80
+lighttpd_user: www-data
+lighttpd_group: www-data
+s3_repository: bogus-app-homework
+aws_region: us-west-2
+tarball: homework.tar.gz
+web_root_dir: /var/www/html
+cache_root_dir: /var/cache
+log_root_dir: /var/log/
+pid_dir: /var/run
+srv_dir: /srv
+staging_dir: /tmp
+#+END_SRC
+**** TODO roles directory
+***** DONE Common
+****** DONE files
+****** DONE handlers
+#+BEGIN_SRC yaml :noweb yes :mkdirp yes :tangle  ansible/roles/common/handlers/main.yml
+---
+- name: restart iptables
+  service: name=iptables state=restarted
+#+END_SRC
+****** DONE tasks
+#+BEGIN_SRC yaml :noweb yes :mkdirp yes :tangle  ansible/roles/common/tasks/main.yml
+- name: insert iptables rule for lighttpd
+  lineinfile: dest=/etc/sysconfig/iptables create=yes state=present regexp="{{ lighttpd_port }}" insertafter="^:OUTPUT "
+              line="-A INPUT -p tcp  --dport {{ lighttpd_port }} -j  ACCEPT"
+  notify: restart iptables
+
+- name: Install EPEL repo.
+  yum:
+    name: https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_distribution_major_version }}.noarch.rpm
+    state: present
+
+- name: Import EPEL GPG key.
+  rpm_key:
+    key: /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-{{ ansible_distribution_major_version }}
+    state: present
+#+END_SRC
+***** TODO lighttpd
+ - [-] change bind server ip to "0.0.0.0" so can view via host web browser pointing at virtual box instance set to the ip above in the vagrant file
+****** TODO files/templates
+******* TODO conf-available directory
+******* TODO conf-enabled directory
+******** vhost for bogus site  via a jinja2 template
+#+BEGIN_SRC conf :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/files/vhost.j2
+# /usr/share/doc/lighttpd/simple-vhost.txt
+
+server.modules += ( "mod_simple_vhost" )
+
+## The document root of a virtual host is document-root =
+##   simple-vhost.server-root + $HTTP["host"] + simple-vhost.document-root
+simple-vhost.server-root         = "/srv"
+simple-vhost.document-root       = "htdocs"
+
+## the default host if no host is sent
+simple-vhost.default-host        = "www.example.com"
+
+#+END_SRC
+******** configurations enabled by means of symbolic link
+******* DONE configuration template
+#+BEGIN_SRC conf :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/templates/lighttpd.conf.j2
+server.modules = (
+	"mod_access",
+	"mod_alias",
+	"mod_compress",
+ 	"mod_redirect",
+#       "mod_rewrite",
+)
+server.document-root        = "{{ web_root_dir }}"
+server.upload-dirs          = "{{ cache_root_dir }}/lighttpd/uploads"
+server.errorlog             = "{{ log_root_dir }}/lighttpd/error.log"
+server.pid-file             = "{{ pid_dir }}/lighttpd.pid"
+server.username             = "{{ lighttpd_user }}"
+server.groupname            = "{{ lighttpd_group }}"
+server.port                 = {{ lighttpd_port }}
+
+
+index-file.names            = ( "index.php", "index.html", "index.lighttpd.html" )
+url.access-deny             = ( "~", ".inc" )
+static-file.exclude-extensions = ( ".php", ".pl", ".fcgi" )
+
+compress.cache-dir          = "/var/cache/lighttpd/compress/"
+compress.filetype           = ( "application/javascript", "text/css", "text/html", "text/plain" )
+
+# default listening port for IPv6 falls back to the IPv4 port
+## Use ipv6 if available
+#include_shell "/usr/share/lighttpd/use-ipv6.pl " + server.port
+include_shell "/usr/share/lighttpd/create-mime.assign.pl"
+include_shell "/usr/share/lighttpd/include-conf-enabled.pl"
+#+END_SRC
+****** DONE handlers
+#+BEGIN_SRC yaml :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/handlers/main.yml
+- name: restart lighttpd
+  service: name=lighttpd state=restarted enabled=yes
+
+#+END_SRC
+****** DONE tasks
+#+BEGIN_SRC yaml :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/tasks/main.yml
+- name: Install lighttpd
+  yum:
+    name: lighttpd
+    state: present
+
+- name: Retrieve homework web site tarball from bogusapp s3 bucket
+  aws_s3:
+    bucket: "bogus-app-homework"
+    object: /homework.tar.gz
+    dest: "{{ staging_dir }}/homework.tar.gz"
+    mode: get
+    aws_access_key: AKIAJH2C7CAWKL7BLTBA
+    aws_secret_key: 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
+    region: us-west-2
+
+#+END_SRC
+
+
+
+
+- name: Retrieve tarball from bucket
+  command: aws s3 cp s3://bogus-app-homework/homework.tar.gz .
+
+
+
+
+
+- name: Copy lighttpd configuration
+  template: src=lighttpd.conf.j2 dest=/etc/lighttpd/conf.d/default.conf
+  notify: restart lighttpd
+
+
+- name: Extract homework.tar.gz.tgz
+  unarchive:
+    src: "{{ staging_dir }}/homework.tar.gz.tgz"
+    dest: /srv/bogusapp/
+  notify: restart lighttpd
+
+** TODO Initial Check In
+*** Tests
+**** yum lighttpd not present
+#+BEGIN_SRC bash
+ansible homework-dev  -m yum -a "name=lighttpd state=present"
+centos7-homework | FAILED! => {
+    "changed": false,
+    "failed": true,
+    "msg": "No Package matching 'lighttpd' found available, installed or updated",
+    "rc": 0,
+    "results": []
+}
+#+END_SRC
+**** firewall rule not present
+#+BEGIN_SRC
+ansible homework-dev -a "iptables --list-rules"
+centos7-homework | SUCCESS | rc=0 >>
+-P INPUT ACCEPT
+-P FORWARD ACCEPT
+-P OUTPUT ACCEPT
+#+END_SRC
+** TODO Run Debug Fix
+** TODO  Check In Working Version
+** TODO Bonus Tasks
+** TODO Add monitoring Check
+** TODO Review Requirements and Objectives
+** TODO Email to Arlen
+*  Artifact deployment Info
+ -  Bucket: 'bogus-app-homework'
+ -  Region:  us-west-2
+ - Access key: AKIAJH2C7CAWKL7BLTBA
+ - Secret key: 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
+ - Object: 'homework.tar.gz'.

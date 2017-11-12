@@ -1,20 +1,14 @@
----
 - name: Install lighttpd
-  yum: name=lighttpd state=present
-
-- name: Copy lighttpd configuration
-  template: src=default.conf dest=/etc/lighttpd/conf.d/default.conf
-  notify: restart lighttpd
+  yum:
+    name: lighttpd
+    state: present
 
 - name: Retrieve homework web site tarball from bogusapp s3 bucket
   aws_s3:
-    bucket: bogus-app-homework
+    bucket: "bogus-app-homework"
     object: /homework.tar.gz
-    dest: {{ staging_dir }}
+    dest: "{{ staging_dir }}/homework.tar.gz"
     mode: get
-
-- name: Extract homework.tar.gz.tgz
-  unarchive:
-    src: {{ staging_dir }}/homework.tar.gz.tgz
-    dest: /srv/bogusapp/
-  notify: restart lighttpd
+    aws_access_key: AKIAJH2C7CAWKL7BLTBA
+    aws_secret_key: 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
+    region: us-west-2

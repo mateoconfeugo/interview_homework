@@ -3,3 +3,4 @@ venv/
 worksheet*
 .vagrant/
 themes/
+vault.txt
