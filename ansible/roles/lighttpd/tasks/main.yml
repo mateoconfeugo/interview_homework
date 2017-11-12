@@ -3,7 +3,16 @@
     name: lighttpd
     state: present
 
-- name: Retrieve homework web site tarball from bogusapp s3 bucket
+- name: Copy main configuration for lighttpd
+  template: src=lighttpd.conf.j2 dest=/etc/lighttpd/lighttpd.conf
+
+- name: Copy module configuration for lighttpd
+  template: src=lighttpd.conf.j2 dest=/etc/lighttpd/modules.conf
+
+- name: Copy named virutal host conf for
+  template: src="{{ bogus_domain }}.conf.j2" dest="/etc/lighttpd/vhosts.d/{{ bogus_domain}}.conf"
+
+- name: Retrieve homework web site tarball from s3 bucket
   connection : local
   s3:
     bucket: bogus-app-homework
@@ -16,14 +25,15 @@
 
 - name: Creates directory
   file:
-    path: /srv/bogusapp
+    path: "/srv/{{ bogus_domain }}"
     state: directory
     owner: "{{ lighttpd_user }}"
     group: "{{ lighttpd_group }}"
     mode: 0775
 
-- name: Extract homework.tar.gz.tgz
+- name: Extract homework.tar.gz
+  register: result
+  notify: restart lighttpd
   unarchive:
     src: "{{ staging_dir }}/homework.tar.gz"
-    dest: /srv/bogusapp/
-#    notify: restart lighttpd
+    dest: "/srv/{{ bogus_domain }}/"

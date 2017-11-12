@@ -28,9 +28,9 @@ sudo apt-get install vagrant
 *** DONE Enable Virtualization in BIOS
 *** DONE What is the Definition of Done for each task
  #+RESULTS:
-* TODO Steps
+* DONE Steps
 ** DONE Create github project
-** TODO Layout directories and files
+** DONE Layout directories and files
 **** DONE Vagrant configuration
 #+BEGIN_SRC ruby  :noweb yes :mkdirp yes :tangle  Vagrantfile
 VAGRANTFILE_API_VERSION = "2"
@@ -76,7 +76,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 end
 #+END_SRC
 **** DONE Ansible configuration
-
 ansible/hosts
 #+BEGIN_SRC ini  :noweb yes :mkdirp yes :tangle  ansible.cfg
 [defaults]
@@ -142,8 +141,9 @@ pid_dir: /var/run
 srv_dir: /srv
 server_bind_ip: 0.0.0.0
 staging_dir: /tmp
+bogus_domain: bogus-app-homework
 #+END_SRC
-**** TODO roles directory
+**** DONE roles directory
 ***** DONE Common
 ****** DONE files
 ****** DONE handlers
@@ -169,57 +169,36 @@ staging_dir: /tmp
     key: /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-{{ ansible_distribution_major_version }}
     state: present
 #+END_SRC
-***** TODO lighttpd
- - [-] change bind server ip to "0.0.0.0" so can view via host web browser pointing at virtual box instance set to the ip above in the vagrant file
-****** TODO files/templates
-
-******* TODO conf-enabled directory
-******** vhost for bogus site  via a jinja2 template
-#+BEGIN_SRC conf :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/files/vhost.j2
-# /usr/share/doc/lighttpd/simple-vhost.txt
-
-server.modules += ( "mod_simple_vhost" )
-
-## The document root of a virtual host is document-root =
-##   simple-vhost.server-root + $HTTP["host"] + simple-vhost.document-root
-simple-vhost.server-root         = "/srv"
-simple-vhost.document-root       = "htdocs"
-
-## the default host if no host is sent
-simple-vhost.default-host        = "www.example.com"
-
-#+END_SRC
-******** configurations enabled by means of symbolic link
+***** DONE lighttpd
+ - [x] change bind server ip to "0.0.0.0" so can view via host web browser pointing at virtual box instance set to the ip above in the vagrant file
+****** DONE templates
+******* vhost for bogus site  via a jinja2 template
 ******* DONE lighttpd.conf
 #+BEGIN_SRC conf :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/templates/lighttpd.conf.j2
-var.log_root    = "{{ log_root_dir }}"
-var.server_root = "{{ web_root_dir }}"
-var.state_dir   = "{{ pid_dir }}"
-var.home_dir    = "/var/lib/lighttpd"
-var.conf_dir    = "/etc/lighttpd"
-
-## Base directory for all virtual hosts  used in:  conf.d/evhost.conf,  conf.d/simple_vhost.conf,  vhosts.d/vhosts.template
-var.vhosts_dir  = server_root + "/vhosts"
-
-## Cache for mod_compress used in: conf.d/compress.conf
-var.cache_dir   = "/var/cache/lighttpd"
-
-## Base directory for sockets used in: conf.d/fastcgi.conf, conf.d/scgi.conf
-var.socket_dir  = state_dir + "/sockets"
+var.log_root     = "{{ log_root_dir }}"
+var.server_root  = "{{ web_root_dir }}"
+var.state_dir    = "{{ pid_dir }}"
+var.home_dir     = "/var/lib/lighttpd"
+var.conf_dir     = "/etc/lighttpd"
+var.server_ip    = "{{ server_bind_ip }}"
+var.server_port  =  "{{ lighttpd_port }}"
+var.server_user  = "{{ lighttpd_user }}"
+var.server_group = "{{ lighttpd_group }}"
+var.vhosts_dir   = server_root + "/vhosts"
+var.cache_dir    = "/var/cache/lighttpd"
+var.socket_dir   = state_dir + "/sockets"
+var.upload_dirs  = ( "/var/tmp" )
 
 include "modules.conf"
-server.port  = "{{ lighttpd_port }}"
+
+server.port  = server_port
 server.use-ipv6 = "enable"
-server.bind = "{{ server_bind_ip }}"
-server.username  = "{{ lighttpd_user }}"
-server.groupname = "{{ lighttpd_group }}"
+server.bind = server_ip
+server.username  =  server_user
+server.groupname = server_group
 server.document-root = server_root + "/lighttpd"
 server.pid-file = state_dir + "/lighttpd.pid"
-## Path to the error log file, all logging options can be overwritten per vhost.
 server.errorlog             = log_root + "/error.log"
-
-include "conf.d/access_log.conf"
-include "conf.d/debug.conf"
 
 server.event-handler = "linux-sysepoll"
 server.network-backend = "sendfile"
@@ -234,55 +213,35 @@ $HTTP["url"] =~ "\.pdf$" {
 }
 
 static-file.exclude-extensions = ( ".php", ".pl", ".fcgi", ".scgi" )
+server.follow-symlink = "enable"
+server.upload-dirs =  upload_dirs
 
+include "conf.d/access_log.conf"
+include "conf.d/debug.conf"
 include "conf.d/mime.conf"
 include "conf.d/dirlisting.conf"
-
-server.follow-symlink = "enable"
-server.upload-dirs = ( "/var/tmp" )
-
-#include "conf.d/config.conf"
-#include "/etc/lighttpd/vhosts.d/*.conf"
-
+include "conf.d/compress.conf"
+include "vhosts.d/*.conf"
 #+END_SRC
-******* TODO module.conf
+******* DONE module.conf
 #+BEGIN_SRC conf :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/templates/modules.conf.j2
 server.modules = (
 	"mod_access",
-	"mod_alias",
 	"mod_compress",
+	"mod_alias",
  	"mod_redirect",
 #       "mod_rewrite",
 )
-server.document-root        = "{{ web_root_dir }}"
-server.upload-dirs          = "{{ cache_root_dir }}/lighttpd/uploads"
-server.errorlog             = "{{ log_root_dir }}/lighttpd/error.log"
-server.pid-file             = "{{ pid_dir }}/lighttpd.pid"
-server.username             = "{{ lighttpd_user }}"
-server.groupname            = "{{ lighttpd_group }}"
-server.port                 = {{ lighttpd_port }}
-
-
-index-file.names            = ( "index.php", "index.html", "index.lighttpd.html" )
-url.access-deny             = ( "~", ".inc" )
-static-file.exclude-extensions = ( ".php", ".pl", ".fcgi" )
-
-compress.cache-dir          = "/var/cache/lighttpd/compress/"
-compress.filetype           = ( "application/javascript", "text/css", "text/html", "text/plain" )
-
-# default listening port for IPv6 falls back to the IPv4 port
-## Use ipv6 if available
-#include_shell "/usr/share/lighttpd/use-ipv6.pl " + server.port
-include_shell "/usr/share/lighttpd/create-mime.assign.pl"
-include_shell "/usr/share/lighttpd/include-conf-enabled.pl"
 #+END_SRC
-******* Named virtual host - type: simple
-#+BEGIN_SRC conf :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/templates/conf.d/simple_vhost.conf.j2
-server.modules += ( "mod_simple_vhost" )
-simple-vhost.server-root   = vhosts_dir + "/"
-simple-vhost.default-host  = "default.example.com"
-simple-vhost.document-root = "/htdocs/"
-#simple-vhost.debug = 1
+
+******* DONE Named virtual host - type: simple for bogus-app-homework.com
+#+BEGIN_SRC conf :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/templates/bogus-app-homework.conf.j2
+$HTTP["host"] =~ "(^|\.){{ bogus_domain }}\.com$" {
+  var.server_name = "{{ bogus_domain }}"
+  server.name = server_name
+  server.document-root = /srv/ + "{{ bogus_domain }}/public"
+  accesslog.filename   = log_root + "/" + server_name + "/access.log"
+}
 #+END_SRC
 ****** DONE handlers
 #+BEGIN_SRC yaml :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/handlers/main.yml
@@ -298,41 +257,57 @@ simple-vhost.document-root = "/htdocs/"
     name: lighttpd
     state: present
 
-- name: Creates directory
-  file:
-    path: /srv/bogusapp
-    state: directory
-    owner: "{{ lighttpd_user }}"
-    group: "{{ lighttpd_group }}"
-    mode: 0775
+- name: Copy main configuration for lighttpd
+  template: src=lighttpd.conf.j2 dest=/etc/lighttpd/lighttpd.conf
 
-- name: Retrieve homework web site tarball from bogusapp s3 bucket
+- name: Copy module configuration for lighttpd
+  template: src=lighttpd.conf.j2 dest=/etc/lighttpd/modules.conf
+
+- name: Copy named virutal host conf for
+  template: src="{{ bogus_domain }}.conf.j2" dest="/etc/lighttpd/vhosts.d/{{ bogus_domain}}.conf"
+
+- name: Retrieve homework web site tarball from s3 bucket
   connection : local
   s3:
     bucket: bogus-app-homework
     object: homework.tar.gz
-    dest: "/srv/bogusapp/homework.tar.gz"
+    dest: "{{ staging_dir }}/homework.tar.gz"
     mode: get
     aws_access_key:  AKIAI2DB7HIYHKOH2HXA
     aws_secret_key:  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
     region: us-west-2
 
-- name: Extract homework.tar.gz.tgz
+- name: Creates directory
+  file:
+    path: "/srv/{{ bogus_domain }}"
+    state: directory
+    owner: "{{ lighttpd_user }}"
+    group: "{{ lighttpd_group }}"
+    mode: 0775
+
+- name: Extract homework.tar.gz
+  register: result
+  notify: restart lighttpd
   unarchive:
-    src: "/srv/bogusapp/homework.tar.gz"
-    dest: /srv/bogusapp/
-#    notify: restart lighttpd
+    src: "{{ staging_dir }}/homework.tar.gz"
+    dest: "/srv/{{ bogus_domain }}/"
 
 #+END_SRC
 
 
-- name: Copy lighttpd configuration
-  template: src=lighttpd.conf.j2 dest=/etc/lighttpd/conf.d/default.conf
-  notify: restart lighttpd
 
 
+- debug: msg="it failed"
+  when: result|failed
+
+- debug: msg="it changed"
+  when: result|changed
 
 
+- name: Clean up the tarball
+  file:
+    state: absent
+    path: /srv/bogusapp/homework.tar.gz
 ** TODO Initial Check In
 *** Tests
 **** yum lighttpd not present
@@ -347,7 +322,7 @@ centos7-homework | FAILED! => {
 }
 #+END_SRC
 **** firewall rule not present
-#+BEGIN_SRC
+#+BEGIN_SRC bash
 ansible homework-dev -a "iptables --list-rules"
 centos7-homework | SUCCESS | rc=0 >>
 -P INPUT ACCEPT

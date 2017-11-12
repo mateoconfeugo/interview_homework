@@ -1,0 +1,6 @@
+$HTTP["host"] =~ "(^|\.){{ bogus_domain }}\.com$" {
+  var.server_name = "{{ bogus_domain }}"
+  server.name = server_name
+  server.document-root = /srv/ + "{{ bogus_domain }}/public"
+  accesslog.filename   = log_root + "/" + server_name + "/access.log"
+}
