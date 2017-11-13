@@ -1,14 +1,10 @@
 #+SETUPFILE: ./themes/theme-readtheorg.setup
 #+TITLE: Assignment for Fox
 Please email the completed assignment to me by Monday. Turn around time should be 2-3 days.
-* What I think I'm supposed to do
- - Via the ansible provider install and configure lighttpd to support named virtual hosting
- - With an ansible module or via awscli  access the s3 bucket and retrieve the tarball
- - Unzip the archive into the correct directory /srv/bogusapp/
- - Restart the server if necessary
- - Register the state of the installation for the idempotent aspect of the assignment
- - Secure the s3 access and secret key, password is supplied at "vagrant up". Use ansible-vault prompting vault password on 'vagrant up'.
- - Present some output at the end of the vagrant run with local host setup to test the named virtual host.
+* Notes
+ - Keys are incorrect in the readme - doh
+ - Uses Ansible 2.4 as 2.1.0.0 has a bug for getting s3 bucket
+ - Put web site in /var/www instead of srv directory because - some permission issue
 * DONE Prerequists
 *** DONE Get the Assignment
 **** DONE Retrieve via AWS CLI:
@@ -81,12 +77,11 @@ end
 [defaults]
 inventory = .vagrant/provisioners/ansible/inventory/vagrant_ansible_inventory
 remote_user = vagrant
-sudo = yes
 pipelining = yes
 roles_path = $TECHOPS_AWS/ansible/roles
-
+deprecation_warnings = False
 [privilege_escalation]
-become = no
+become = yes
 #+END_SRC
 **** DONE top level yaml   file homework.yml  - not used
 #+BEGIN_SRC yaml  :noweb yes :mkdirp yes :tangle  ansible/homework.yml
@@ -156,12 +151,7 @@ bogus_domain: bogusapp
   service: name=iptables state=restarted
 #+END_SRC
 ****** DONE tasks
-#+BEGIN_SRC yaml :noweb yes :mkdirp yes :tangle  ansible/roles/common/tasks/main.yml
-- name: insert iptables rule for lighttpd
-  lineinfile: dest=/etc/sysconfig/iptables create=yes state=present regexp="{{ lighttpd_port }}" insertafter="^:OUTPUT "
-              line="-A INPUT -p tcp  --dport {{ lighttpd_port }} -j  ACCEPT"
-  notify: restart iptables
-
+# These worked and then they stopped - went with other approach
 - name: Install EPEL repo.
   yum:
     name: https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_distribution_major_version }}.noarch.rpm
@@ -171,6 +161,18 @@ bogus_domain: bogusapp
   rpm_key:
     key: /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-{{ ansible_distribution_major_version }}
     state: present
+
+#+BEGIN_SRC yaml :noweb yes :mkdirp yes :tangle  ansible/roles/common/tasks/main.yml
+- name: insert iptables rule for lighttpd
+  lineinfile: dest=/etc/sysconfig/iptables create=yes state=present regexp="{{ lighttpd_port }}" insertafter="^:OUTPUT "
+              line="-A INPUT -p tcp  --dport {{ lighttpd_port }} -j  ACCEPT"
+  notify: restart iptables
+
+- name: Install epel
+  yum:
+    name: epel-release
+    state: present
+
 #+END_SRC
 ***** DONE lighttpd
  - [x] change bind server ip to "0.0.0.0" so can view via host web browser pointing at virtual box instance set to the ip above in the vagrant file
@@ -267,7 +269,7 @@ debug.log-response-header = "enable"
   file:
     state: absent
     path: /srv/bogusapp/homework.tar.gz
-** TODO Initial Check In
+** DONE Initial Check In
 *** Tests
 **** yum lighttpd not present
 #+BEGIN_SRC bash
@@ -288,15 +290,14 @@ centos7-homework | SUCCESS | rc=0 >>
 -P FORWARD ACCEPT
 -P OUTPUT ACCEPT
 #+END_SRC
-** TODO Run Debug Fix
-** TODO  Check In Working Version
+** DONE Run Debug Fix
+** DONE Check In Working Version
 ** TODO Bonus Tasks
-** TODO Add monitoring Check
-** TODO Review Requirements and Objectives
-** TODO Email to Arlen
+*** TODO Use Ansible Vault to get the keys out of the playbook task
+*** TODO Put the ansible repo update into its own role
 *  Artifact deployment Info
  -  Bucket: 'bogus-app-homework'
  -  Region:  us-west-2
- - Access key: AKIAJH2C7CAWKL7BLTBA
- - Secret key: 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
+ -  <-- Wrong access key in the README
+ -  <-- Wrong secret key in the README
  - Object: 'homework.tar.gz'.
