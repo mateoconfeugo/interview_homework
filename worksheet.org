@@ -1,6 +1,9 @@
 #+SETUPFILE: ./themes/theme-readtheorg.setup
 #+TITLE: Assignment for Fox
 Please email the completed assignment to me by Monday. Turn around time should be 2-3 days.
+
+MB: Please scoll down to see the work or just clone the repo.
+
 * Notes
  - Keys are incorrect in the readme - doh
  - Uses Ansible 2.4 as 2.1.0.0 has a bug for getting s3 bucket
@@ -83,7 +86,7 @@ deprecation_warnings = False
 [privilege_escalation]
 become = yes
 #+END_SRC
-**** DONE top level yaml   file homework.yml  - not used
+**** DONE top level yaml   file homework.yml
 #+BEGIN_SRC yaml  :noweb yes :mkdirp yes :tangle  ansible/homework.yml
 ---
 - name: Install lighttpd and deploy website via tarball residing on s3 bucket
