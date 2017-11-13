@@ -67,6 +67,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       host.vm.provision "ansible" do |ansible|
         ansible.extra_vars = { ENV: this_env }
         ansible.playbook = "ansible/homework.yml"
+        ansible.ask_sudo_pass = true
         ansible.groups = {
           "#{this_role}-#{this_env}" => [ "#{distribution}-#{this_role}" ]
         }
@@ -76,7 +77,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
 end
 #+END_SRC
 **** DONE Ansible configuration
-ansible/hosts
 #+BEGIN_SRC ini  :noweb yes :mkdirp yes :tangle  ansible.cfg
 [defaults]
 inventory = .vagrant/provisioners/ansible/inventory/vagrant_ansible_inventory
@@ -88,7 +88,7 @@ roles_path = $TECHOPS_AWS/ansible/roles
 [privilege_escalation]
 become = no
 #+END_SRC
-**** DONE top level yaml file homework.yml
+**** DONE top level yaml   file homework.yml  - not used
 #+BEGIN_SRC yaml  :noweb yes :mkdirp yes :tangle  ansible/homework.yml
 ---
 - name: Install lighttpd and deploy website via tarball residing on s3 bucket
@@ -110,11 +110,8 @@ become = no
     - common
     - lighttpd
 #+END_SRC
-**** DONE hosts
-    localhost:
-      ansible_connection: local
-      ansible_python_interpreter: /home/mburns/bb/mbe/projects/disney_homework/interview_homework/venv/bin/python
-#+BEGIN_SRC yaml :noweb yes  :mkdirp yes :tangle ansible/hosts
+**** DONE hosts - not used!
+#+BEGIN_SRC yaml :noweb yes  :mkdirp yes
 ---
 all:
   hosts:
@@ -152,7 +149,6 @@ bogus_domain: bogusapp
 #+END_SRC
 **** DONE roles directory
 ***** DONE Common
-****** DONE files
 ****** DONE handlers
 #+BEGIN_SRC yaml :noweb yes :mkdirp yes :tangle  ansible/roles/common/handlers/main.yml
 ---
@@ -179,7 +175,6 @@ bogus_domain: bogusapp
 ***** DONE lighttpd
  - [x] change bind server ip to "0.0.0.0" so can view via host web browser pointing at virtual box instance set to the ip above in the vagrant file
 ****** DONE templates
-******* vhost for bogus site  via a jinja2 template
 ******* DONE lighttpd.conf
 #+BEGIN_SRC conf :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/templates/simple-lighttpd.conf.j2
 server.document-root = "/var/www/"
@@ -207,84 +202,6 @@ debug.log-file-not-found = "enable"
 debug.log-request-header = "enable"
 debug.log-request-handling = "enable"
 debug.log-response-header = "enable"
-
-
-
-#+END_SRC
-
-#+BEGIN_SRC conf :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/templates/lighttpd.conf.j2
-var.log_root     = "{{ log_root_dir }}"
-var.server_root  = "{{ web_root_dir }}"
-var.state_dir    = "{{ pid_dir }}"
-var.home_dir     = "/var/lib/lighttpd"
-var.conf_dir     = "/etc/lighttpd"
-var.server_ip    = "{{ server_bind_ip }}"
-var.server_port  =  {{ lighttpd_port }}
-var.server_user  = "{{ lighttpd_user }}"
-var.server_group = "{{ lighttpd_group }}"
-var.vhosts_dir   = server_root + "/vhosts"
-var.cache_dir    = "/var/cache/lighttpd"
-var.socket_dir   = state_dir + "/sockets"
-var.upload_dirs  = ( "/var/tmp" )
-
-include "modules.conf"
-
-server.port  = server_port
-server.use-ipv6 = "enable"
-server.bind = server_ip
-server.username  =  server_user
-server.groupname = server_group
-server.document-root = server_root + "/lighttpd"
-server.pid-file = state_dir + "/lighttpd.pid"
-server.errorlog             = log_root + "/error.log"
-
-server.event-handler = "linux-sysepoll"
-server.network-backend = "sendfile"
-server.stat-cache-engine = "simple"
-server.max-connections = 1024
-
-index-file.names += ( "index.xhtml", "index.html", "index.htm", "default.htm", "index.php")
-url.access-deny = ( "~", ".inc" )
-
-$HTTP["url"] =~ "\.pdf$" {
-  server.range-requests = "disable"
-}
-
-static-file.exclude-extensions = ( ".php", ".pl", ".fcgi", ".scgi" )
-server.follow-symlink = "enable"
-server.upload-dirs =  upload_dirs
-
-include "conf.d/access_log.conf"
-include "conf.d/debug.conf"
-include "conf.d/mime.conf"
-include "conf.d/dirlisting.conf"
-include "conf.d/compress.conf"
-include "vhosts.d/*.conf"
-#+END_SRC
-******* DONE module.conf
-#+BEGIN_SRC conf :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/templates/modules.conf.j2
-server.modules = (
-	"mod_access",
-	"mod_compress",
-	"mod_alias",
- 	"mod_redirect",
-#       "mod_rewrite",
-)
-
-
-
-
-
-#+END_SRC
-
-******* DONE Named virtual host - type: simple for bogus-app-homework.com
-#+BEGIN_SRC conf :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/templates/bogusapp.conf.j2
-$HTTP["host"] =~ "(^|\.){{ bogus_domain }}\.com$" {
-  var.server_name = "{{ bogus_domain }}"
-  server.name = server_name
-  server.document-root = /srv/ + "{{ bogus_domain }}/public"
-  accesslog.filename   = log_root + "/" + server_name + "/access.log"
-}
 #+END_SRC
 ****** DONE handlers
 #+BEGIN_SRC yaml :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/handlers/main.yml
@@ -302,9 +219,6 @@ $HTTP["host"] =~ "(^|\.){{ bogus_domain }}\.com$" {
 
 - name: Copy main configuration for lighttpd
   template: src=simple-lighttpd.conf.j2 dest=/etc/lighttpd/lighttpd.conf
-
-- name: Copy named virutal host conf for
-  template: src="{{ bogus_domain }}.conf.j2" dest="/etc/lighttpd/vhosts.d/{{ bogus_domain}}.conf"
 
 - name: Retrieve homework web site tarball from s3 bucket
   connection : local
@@ -347,19 +261,8 @@ $HTTP["host"] =~ "(^|\.){{ bogus_domain }}\.com$" {
   service: name=lighttpd state=started enabled=yes
 
 #+END_SRC
+** Possibly useful
   sudo setsebool -P httpd_setrlimit on
-
-
-- name: Copy module configuration for lighttpd
-  template: src=modules.conf.j2 dest=/etc/lighttpd/modules.conf
-
-- debug: msg="it failed"
-  when: result|failed
-
-- debug: msg="it changed"
-  when: result|changed
-
-
 - name: Clean up the tarball
   file:
     state: absent

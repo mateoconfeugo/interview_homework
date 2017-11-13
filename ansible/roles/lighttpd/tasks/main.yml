@@ -6,9 +6,6 @@
 - name: Copy main configuration for lighttpd
   template: src=simple-lighttpd.conf.j2 dest=/etc/lighttpd/lighttpd.conf
 
-- name: Copy named virutal host conf for
-  template: src="{{ bogus_domain }}.conf.j2" dest="/etc/lighttpd/vhosts.d/{{ bogus_domain}}.conf"
-
 - name: Retrieve homework web site tarball from s3 bucket
   connection : local
   aws_s3:
