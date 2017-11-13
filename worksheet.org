@@ -94,11 +94,18 @@ become = no
 - name: Install lighttpd and deploy website via tarball residing on s3 bucket
   hosts: homework-dev
   remote_user: root
-  become: yes
-  become_method: sudo
+#  become: yes
+#  become_method: sudo
+  vars:
+    instructions:
 
   tasks:
-  - debug: msg="starting out on task this message is for the initial commit"
+  - debug:
+      msg:
+       - "To test locally add the following line to the /etc/hosts file on the host"
+       - "bogusapp.com   192.168.52.101"
+       - "Then point your webbrowser at bogusapp.com"
+
   roles:
     - common
     - lighttpd
@@ -175,10 +182,33 @@ bogus_domain: bogusapp
 ******* vhost for bogus site  via a jinja2 template
 ******* DONE lighttpd.conf
 #+BEGIN_SRC conf :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/templates/simple-lighttpd.conf.j2
-server.document-root = "/var/www"
+server.document-root = "/var/www/"
 mimetype.assign = ("" => "text/html")
 server.bind = "0.0.0.0"
-server.port  =  {{ lighttpd_port }}
+server.port  =  80
+server.modules              = (
+                              "mod_rewrite",
+                              "mod_redirect",
+                              "mod_access",
+                              "mod_status",
+                              "mod_simple_vhost",
+                              "mod_accesslog",
+                              "mod_indexfile"
+                               )
+
+server.indexfiles = ("index.html")
+
+simple-vhost.server-root   = "/var/www/vhosts/"
+simple-vhost.default-host  = "{{ bogus_domain }}.com"
+simple-vhost.document-root = "public"
+
+server.errorlog = "/var/log/lighttpd/error.log"
+debug.log-file-not-found = "enable"
+debug.log-request-header = "enable"
+debug.log-request-handling = "enable"
+debug.log-response-header = "enable"
+
+
 
 #+END_SRC
 
@@ -240,6 +270,11 @@ server.modules = (
  	"mod_redirect",
 #       "mod_rewrite",
 )
+
+
+
+
+
 #+END_SRC
 
 ******* DONE Named virtual host - type: simple for bogus-app-homework.com
@@ -273,7 +308,7 @@ $HTTP["host"] =~ "(^|\.){{ bogus_domain }}\.com$" {
 
 - name: Retrieve homework web site tarball from s3 bucket
   connection : local
-  s3:
+  aws_s3:
     bucket: bogus-app-homework
     object: homework.tar.gz
     dest: "{{ staging_dir }}/homework.tar.gz"
@@ -284,22 +319,32 @@ $HTTP["host"] =~ "(^|\.){{ bogus_domain }}\.com$" {
 
 - name: Creates directory
   file:
-    path: "/var/www/{{ bogus_domain }}"
+    path: "/var/www/vhosts"
     state: directory
-    owner: "{{ lighttpd_user }}"
-    group: "{{ lighttpd_group }}"
-    mode: 0700
-
-- name: Extract homework.tar.gz
-  register: result
-  notify: restart lighttpd
-  unarchive:
-    src: "{{ staging_dir }}/homework.tar.gz"
-    dest: "/var/www/{{ bogus_domain }}/"
     owner: "{{ lighttpd_user }}"
     group: "{{ lighttpd_group }}"
     mode: 0744
 
+- name: Creates directory
+  file:
+    path: "/var/www/vhosts/{{ bogus_domain }}.com"
+    state: directory
+    owner: "{{ lighttpd_user }}"
+    group: "{{ lighttpd_group }}"
+    mode: 0744
+
+- name: Extract homework.tar.gz
+  unarchive:
+    src: "{{ staging_dir }}/homework.tar.gz"
+    dest: "/var/www/vhosts/{{ bogus_domain }}.com/"
+    owner: "{{ lighttpd_user }}"
+    group: "{{ lighttpd_group }}"
+    mode: 0744
+  notify:
+    - restart lighttpd
+
+- name: ensure lighttpd is running (and enable it at boot)
+  service: name=lighttpd state=started enabled=yes
 
 #+END_SRC
   sudo setsebool -P httpd_setrlimit on

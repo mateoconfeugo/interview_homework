@@ -2,11 +2,18 @@
 - name: Install lighttpd and deploy website via tarball residing on s3 bucket
   hosts: homework-dev
   remote_user: root
-  become: yes
-  become_method: sudo
+#  become: yes
+#  become_method: sudo
+  vars:
+    instructions:
 
   tasks:
-  - debug: msg="starting out on task this message is for the initial commit"
+  - debug:
+      msg:
+       - "To test locally add the following line to the /etc/hosts file on the host"
+       - "bogusapp.com   192.168.52.101"
+       - "Then point your webbrowser at bogusapp.com"
+
   roles:
     - common
     - lighttpd
