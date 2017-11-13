@@ -1,3 +1,8 @@
+- name: Include vars
+  include_vars:
+    file: group_vars/vars
+    name: encrypted_stuff
+
 - name: Install lighttpd
   yum:
     name: lighttpd
