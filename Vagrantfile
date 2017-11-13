@@ -3,7 +3,7 @@ VAGRANTFILE_API_VERSION = "2"
 this_role = 'homework'
 this_env = 'dev'
 
-ENV['ANSIBLE_CONFIG'] = "ansible/ansible.cfg"
+ENV['ANSIBLE_CONFIG'] = "ansible.cfg"
 ENV['ANSIBLE_DIR'] = "ansible/"
 
 vagrant_ip = "192.168.52.101"
@@ -32,6 +32,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       host.vm.provision "ansible" do |ansible|
         ansible.extra_vars = { ENV: this_env }
         ansible.playbook = "ansible/homework.yml"
+        ansible.ask_sudo_pass = true
         ansible.groups = {
           "#{this_role}-#{this_env}" => [ "#{distribution}-#{this_role}" ]
         }

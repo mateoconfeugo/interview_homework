@@ -1,0 +1,9 @@
+- name: insert iptables rule for lighttpd
+  lineinfile: dest=/etc/sysconfig/iptables create=yes state=present regexp="{{ lighttpd_port }}" insertafter="^:OUTPUT "
+              line="-A INPUT -p tcp  --dport {{ lighttpd_port }} -j  ACCEPT"
+  notify: restart iptables
+
+- name: Install epel
+  yum:
+    name: epel-release
+    state: present

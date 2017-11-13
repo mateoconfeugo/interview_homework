@@ -1,0 +1,47 @@
+- name: Install lighttpd
+  yum:
+    name: lighttpd
+    state: present
+
+- name: Copy main configuration for lighttpd
+  template: src=simple-lighttpd.conf.j2 dest=/etc/lighttpd/lighttpd.conf
+
+- name: Retrieve homework web site tarball from s3 bucket
+  connection : local
+  aws_s3:
+    bucket: bogus-app-homework
+    object: homework.tar.gz
+    dest: "{{ staging_dir }}/homework.tar.gz"
+    mode: get
+    aws_access_key:  AKIAI2DB7HIYHKOH2HXA
+    aws_secret_key:  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
+    region: us-west-2
+
+- name: Creates directory
+  file:
+    path: "/var/www/vhosts"
+    state: directory
+    owner: "{{ lighttpd_user }}"
+    group: "{{ lighttpd_group }}"
+    mode: 0744
+
+- name: Creates directory
+  file:
+    path: "/var/www/vhosts/{{ bogus_domain }}.com"
+    state: directory
+    owner: "{{ lighttpd_user }}"
+    group: "{{ lighttpd_group }}"
+    mode: 0744
+
+- name: Extract homework.tar.gz
+  unarchive:
+    src: "{{ staging_dir }}/homework.tar.gz"
+    dest: "/var/www/vhosts/{{ bogus_domain }}.com/"
+    owner: "{{ lighttpd_user }}"
+    group: "{{ lighttpd_group }}"
+    mode: 0744
+  notify:
+    - restart lighttpd
+
+- name: ensure lighttpd is running (and enable it at boot)
+  service: name=lighttpd state=started enabled=yes

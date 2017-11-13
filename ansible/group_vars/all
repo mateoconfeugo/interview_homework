@@ -1,0 +1,15 @@
+---
+lighttpd_port: 80
+lighttpd_user:  lighttpd
+lighttpd_group: lighttpd
+s3_repository: bogus-app-homework
+aws_region: us-west-2
+tarball: homework.tar.gz
+web_root_dir: /var/www/html
+cache_root_dir: /var/cache
+log_root_dir: /var/log/
+pid_dir: /var/run
+srv_dir: /srv
+server_bind_ip: 0.0.0.0
+staging_dir: /tmp
+bogus_domain: bogusapp
