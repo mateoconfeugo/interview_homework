@@ -8,13 +8,13 @@ MB: Please scoll down to see the work or just clone the repo.
  - Keys are incorrect in the readme - doh
  - Uses Ansible 2.4 as 2.1.0.0 has a bug for getting s3 bucket
  - Put web site in /var/www instead of srv directory because - some permission issue
-* DONE Prerequists
+* DONE Prerequistes
 *** DONE Get the Assignment
 **** DONE Retrieve via AWS CLI:
   - s3://bogus-app-homework/interview_homework.tar
   - Using the following credentials:
-  +  AWS_ACCESS_KEY_ID: AKIAI2DB7HIYHKOH2HXA
-  + AWS_SECRET_ACCESS_KEY: 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
+  +  AWS_ACCESS_KEY_ID: XXXXXXXXXXXXXXXXXXXXXXxxx
+  + AWS_SECRET_ACCESS_KEY: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXx
  These are accomplished by running the about setup_env script
 *** DONE Python dependencies
 *** DONE virturalenv
@@ -92,17 +92,22 @@ become = yes
 - name: Install lighttpd and deploy website via tarball residing on s3 bucket
   hosts: homework-dev
   remote_user: root
-#  become: yes
-#  become_method: sudo
-  vars:
-    instructions:
 
   tasks:
   - debug:
       msg:
-       - "To test locally add the following line to the /etc/hosts file on the host"
+       - "*************************************************************************"
+       - "/////////////////////////////////////////////////////////////////////////"
+       - "////////////////////// HOW TO TEST INSTALL //////////////////////////////"
+       - "/////////////////////////////////////////////////////////////////////////"
+       - "*************************************************************************"
+       - "To test locally add the following line to the /etc/hosts file on the host."
        - "bogusapp.com   192.168.52.101"
-       - "Then point your webbrowser at bogusapp.com"
+       - "Then point your web browser at bogusapp.com."
+       - "*************************************************************************"
+       - "/////////////////////////////////////////////////////////////////////////"
+       - "////////////////////// HOW TO TEST INSTALL //////////////////////////////"
+       - "/////////////////////////////////////////////////////////////////////////"
 
   roles:
     - common
@@ -154,17 +159,6 @@ bogus_domain: bogusapp
   service: name=iptables state=restarted
 #+END_SRC
 ****** DONE tasks
-# These worked and then they stopped - went with other approach
-- name: Install EPEL repo.
-  yum:
-    name: https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_distribution_major_version }}.noarch.rpm
-    state: present
-
-- name: Import EPEL GPG key.
-  rpm_key:
-    key: /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-{{ ansible_distribution_major_version }}
-    state: present
-
 #+BEGIN_SRC yaml :noweb yes :mkdirp yes :tangle  ansible/roles/common/tasks/main.yml
 - name: insert iptables rule for lighttpd
   lineinfile: dest=/etc/sysconfig/iptables create=yes state=present regexp="{{ lighttpd_port }}" insertafter="^:OUTPUT "
@@ -178,6 +172,19 @@ bogus_domain: bogusapp
 
 #+END_SRC
 ***** DONE lighttpd
+****** Group Vars
+#+BEGIN_SRC yaml :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/group_vars/vars
+---
+aws_access_key:  foo
+aws_secret_key:  bar
+#+END_SRC
+
+#+BEGIN_SRC yaml :noweb yes
+#---
+#aws_access_key_:" {{ aws_access_key }}"
+#aws_secret_key_: "{{ aws_secret_key }}"
+#+END_SRC
+
  - [x] change bind server ip to "0.0.0.0" so can view via host web browser pointing at virtual box instance set to the ip above in the vagrant file
 ****** DONE templates
 ******* DONE lighttpd.conf
@@ -209,7 +216,7 @@ debug.log-request-handling = "enable"
 debug.log-response-header = "enable"
 #+END_SRC
 ****** DONE handlers
-#+BEGIN_SRC yaml :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/handlers/main.yml
+#+BEGIN_SRC yaml :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/group_vars/vars
 ---
 - name: restart lighttpd
   service: name=lighttpd state=restarted enabled=yes
@@ -217,6 +224,11 @@ debug.log-response-header = "enable"
 #+END_SRC
 ****** DONE tasks
 #+BEGIN_SRC yaml :noweb yes :mkdirp yes :tangle  ansible/roles/lighttpd/tasks/main.yml
+- name: Include vars
+  include_vars:
+    file: group_vars/vars
+    name: encrypted_stuff
+
 - name: Install lighttpd
   yum:
     name: lighttpd

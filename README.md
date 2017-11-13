@@ -39,8 +39,8 @@ The following access and secret keys have read only access
 to the 'bogus-app-homework' bucket in the us-west-2 region:
 
 ***** These keys don't work for the forementioned bucket: *****
-Access key: AKIAJH2C7CAWKL7BLTBA
-Secret key: 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
+Access key: XXXXXXXXXXXXXXXXXXXXXXX 
+Secret key: XXXXXXXXXXXXXXXXXXXXXXx
 
 The artifact to deploy is 'homework.tar.gz'.
 
